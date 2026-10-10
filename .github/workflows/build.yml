@@ -21,17 +21,28 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # ✅ CÀI ANDROID SDK ĐẦY ĐỦ — Bước quan trọng nhất mình thiếu
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # ✅ CÀI ANDROID SDK THỦ CÔNG — KHÔNG DÙNG ACTION BỊ LỖI
+      - name: Install Android SDK manually
+        run: |
+          sudo apt-get update && sudo apt-get install -y wget unzip
+          mkdir -p ~/android-sdk && cd ~/android-sdk
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-11076708_latest.zip
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          export PATH=$PATH:$HOME/android-sdk/cmdline-tools/bin
 
-      # ✅ Tạo file giấy phép thủ công
-      - name: Accept Licenses
+      # ✅ CHẬP NHẬN GIẤY PHÉP
+      - name: Accept Licenses & Install SDK components
         run: |
           mkdir -p "$ANDROID_HOME/licenses"
           echo "24333f8a63b6825ea9c5d4ffa8e753f60081d2c3" > "$ANDROID_HOME/licenses/android-sdk-license"
+          mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
+          cp -r $ANDROID_HOME/cmdline-tools/bin $ANDROID_HOME/cmdline-tools/latest/
+          cp -r $ANDROID_HOME/cmdline-tools/lib $ANDROID_HOME/cmdline-tools/latest/
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-35" "build-tools;35.0.0"
 
-      # ✅ Giải nén & Build — bỏ sdkmanager vì setup-android đã làm rồi
+      # ✅ GIẢI NÉN & BUILD
       - name: Build APK
         run: |
           unzip -q KanaMasterAndroid_phone_build.zip
@@ -45,10 +56,4 @@ jobs:
           name: KanaMaster-debug-APK
           path: KanaMasterAndroid/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          
-          
-          
-          
-          
-          
           

@@ -26,26 +26,32 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      # ✅ Tạo file chấp nhận giấy phép thủ công — CÁCH NÀY CHẮC CHẮN NHẤT
+      # ✅ Tạo giấy phép thủ công
       - name: Accept Android SDK Licenses
         run: |
           mkdir -p "$ANDROID_HOME/licenses"
           echo "24333f8a63b6825ea9c5d4ffa8e753f60081d2c3" > "$ANDROID_HOME/licenses/android-sdk-license"
           echo "d975f80fb2f322d0d731b984012d1412bc4d3b46" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
 
-      - name: Install SDK & Build
+      # ✅ Giải nén + Tìm thư mục tự động
+      - name: Extract & Build
         run: |
-          yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
           unzip -q KanaMasterAndroid_phone_build.zip
-          cd KanaMasterAndroid
-          gradle --no-daemon assembleDebug
+          ls -la  # Xem có thư mục nào
+          cd kanamaster* || cd KanaMaster*  # Tự động vào thư mục đúng
+          pwd
+          yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
 
+      # ✅ Tìm APK để upload
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: KanaMaster-debug-APK
-          path: KanaMasterAndroid/app/build/outputs/apk/debug/app-debug.apk
+          path: '**/app/build/outputs/apk/debug/app-debug.apk'
           if-no-files-found: error
+          
           
           
           

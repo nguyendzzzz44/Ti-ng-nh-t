@@ -24,11 +24,13 @@ jobs:
       - name: Install Android SDK manually
         run: |
           sudo apt-get update && sudo apt-get install -y wget unzip
-          mkdir -p ~/android-sdk && cd ~/android-sdk
+          ANDROID_HOME=$HOME/android-sdk
+          mkdir -p $ANDROID_HOME && cd $ANDROID_HOME
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          export PATH=$PATH:$HOME/android-sdk/cmdline-tools/bin
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/bin
 
       - name: Accept Licenses & Install SDK components
         run: |
@@ -39,7 +41,6 @@ jobs:
           cp -r $ANDROID_HOME/cmdline-tools/lib $ANDROID_HOME/cmdline-tools/latest/
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-35" "build-tools;35.0.0"
 
-      # ✅ GIẢI NÉN VÀ TẠO FILE gradlew BỊ THIẾU
       - name: Build APK
         run: |
           unzip -q KanaMasterAndroid_phone_build.zip

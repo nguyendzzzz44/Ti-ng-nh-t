@@ -21,42 +21,32 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Android SDK
-        run: |
-          sudo apt-get update && sudo apt-get install -y wget unzip
-          ANDROID_HOME=$HOME/android-sdk
-          mkdir -p "$ANDROID_HOME" && cd "$ANDROID_HOME"
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-          unzip -q commandlinetools-linux-11076708_latest.zip
-          mkdir -p cmdline-tools/latest
-          cp -r bin lib cmdline-tools/latest/
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-
-      - name: Accept Licenses & Install SDK components
-        run: |
-          mkdir -p "$ANDROID_HOME/licenses"
-          echo "24333f8a63b6825ea9c5d4ffa8e753f60081d2c3" > "$ANDROID_HOME/licenses/android-sdk-license"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-35" "build-tools;34.0.0"
+      # ✅ Dùng action chuẩn, không cần tự cài thủ công nữa
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 35
+          build-tools: "34.0.0"
 
       - name: Extract source & Build APK
         run: |
           unzip -q KanaMasterAndroid_phone_build.zip
           cd KanaMasterAndroid
-          mkdir -p app/src/main
           
-          # ✅ Tạo file cấu hình tạm để khớp JVM
-          echo 'allprojects { tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinOptions { jvmTarget = "17" } } }' >> jvmfix.gradle
-          echo 'apply from: "./jvmfix.gradle"' >> build.gradle
+          # Tạo file cấu hình tạm để đồng bộ JVM
+          cat > fix-jvm.gradle << 'EOF'
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
+              kotlinOptions { jvmTarget = "17" }
+          }
+          EOF
+          echo "apply from: 'fix-jvm.gradle'" >> app/build.gradle.kts
           
-          if [ ! -f gradlew ]; then gradle wrapper; fi
-          chmod +x gradlew
+          chmod +x gradlew 2>/dev/null || gradle wrapper
           ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: KanaMaster-debug-APK
+          name: KanaMaster-APK
           path: KanaMasterAndroid/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
           

@@ -26,16 +26,18 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: true   # ✅ SỬA ĐÚNG TÊN Ở ĐÂY
-
-      - name: Extract Android project & Build
+      # ✅ Tạo file chấp nhận giấy phép thủ công — CÁCH NÀY CHẮC CHẮN NHẤT
+      - name: Accept Android SDK Licenses
         run: |
+          mkdir -p "$ANDROID_HOME/licenses"
+          echo "24333f8a63b6825ea9c5d4ffa8e753f60081d2c3" > "$ANDROID_HOME/licenses/android-sdk-license"
+          echo "d975f80fb2f322d0d731b984012d1412bc4d3b46" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+
+      - name: Install SDK & Build
+        run: |
+          yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
           unzip -q KanaMasterAndroid_phone_build.zip
           cd KanaMasterAndroid
-          yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
           gradle --no-daemon assembleDebug
 
       - name: Upload APK
@@ -44,6 +46,7 @@ jobs:
           name: KanaMaster-debug-APK
           path: KanaMasterAndroid/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          
           
           
           

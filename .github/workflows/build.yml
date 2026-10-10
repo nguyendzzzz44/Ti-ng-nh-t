@@ -21,31 +21,35 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Android SDK manually
+      - name: Install Android SDK
         run: |
           sudo apt-get update && sudo apt-get install -y wget unzip
           ANDROID_HOME=$HOME/android-sdk
-          mkdir -p $ANDROID_HOME && cd $ANDROID_HOME
+          mkdir -p "$ANDROID_HOME" && cd "$ANDROID_HOME"
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
+          mkdir -p cmdline-tools/latest
+          cp -r bin lib cmdline-tools/latest/
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/bin
 
       - name: Accept Licenses & Install SDK components
         run: |
           mkdir -p "$ANDROID_HOME/licenses"
           echo "24333f8a63b6825ea9c5d4ffa8e753f60081d2c3" > "$ANDROID_HOME/licenses/android-sdk-license"
-          mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
-          cp -r $ANDROID_HOME/cmdline-tools/bin $ANDROID_HOME/cmdline-tools/latest/
-          cp -r $ANDROID_HOME/cmdline-tools/lib $ANDROID_HOME/cmdline-tools/latest/
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-35" "build-tools;35.0.0"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-35" "build-tools;34.0.0"
 
-      - name: Build APK
+      - name: Extract source & Build APK
         run: |
           unzip -q KanaMasterAndroid_phone_build.zip
           cd KanaMasterAndroid
-          gradle wrapper
+          mkdir -p app/src/main
+          
+          # ✅ Tạo file cấu hình tạm để khớp JVM
+          echo 'allprojects { tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { kotlinOptions { jvmTarget = "17" } } }' >> jvmfix.gradle
+          echo 'apply from: "./jvmfix.gradle"' >> build.gradle
+          
+          if [ ! -f gradlew ]; then gradle wrapper; fi
           chmod +x gradlew
           ./gradlew --no-daemon assembleDebug
 

@@ -4,8 +4,7 @@ name: Build Kana Master APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
@@ -22,31 +21,38 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
+          distribution: temurin
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools platforms;android-35 build-tools;34.0.0'
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
-      - name: Extract source and Build APK
+      - name: Download Gradle 8.9
+        shell: bash
         run: |
-          unzip -q KanaMasterAndroid_phone_build.zip
-          cd KanaMasterAndroid
-          cat > fix-jvm.gradle <<'EOF'
-          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-          }
-          EOF
-          echo "apply from: 'fix-jvm.gradle'" >> app/build.gradle
-          chmod +x gradlew 2>/dev/null || true
-          ./gradlew --no-daemon assembleDebug
+          set -e
+          curl -fL \
+            https://services.gradle.org/distributions/gradle-8.9-bin.zip \
+            -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+
+      - name: Extract source and build APK
+        shell: bash
+        run: |
+          set -e
+
+          unzip -q KanaMasterAndroid_phone_build.zip -d source
+
+          cd source/KanaMasterAndroid
+
+          /tmp/gradle-8.9/bin/gradle \
+            --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: KanaMaster-APK
-          path: KanaMasterAndroid/app/build/outputs/apk/debug/app-debug.apk
+          path: source/KanaMasterAndroid/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
           

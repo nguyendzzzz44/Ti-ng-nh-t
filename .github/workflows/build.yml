@@ -1,10 +1,10 @@
-
 name: Build Kana Master APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -24,9 +24,7 @@ jobs:
           distribution: temurin
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+        uses: android-actions/setup-android@v3
 
       - name: Download Gradle 8.9
         shell: bash
@@ -34,25 +32,113 @@ jobs:
           set -e
           curl -fL \
             https://services.gradle.org/distributions/gradle-8.9-bin.zip \
-            -o /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d /tmp
+            -o /tmp/gradle-8.9-bin.zip
+          unzip -q /tmp/gradle-8.9-bin.zip -d /tmp
 
-      - name: Extract source and build APK
+      - name: Extract Android project
         shell: bash
         run: |
           set -e
-
+          test -f KanaMasterAndroid_phone_build.zip
           unzip -q KanaMasterAndroid_phone_build.zip -d source
+          test -f source/KanaMasterAndroid/app/build.gradle.kts
 
+      - name: Fix Java and Kotlin versions
+        shell: bash
+        run: |
+          set -e
           cd source/KanaMasterAndroid
 
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path("app/build.gradle.kts")
+          s = p.read_text(encoding="utf-8")
+
+          if not re.search(r'\bandroid\s*\{', s):
+              raise SystemExit("Khong tim thay khoi android")
+
+          # Dong bo cac cau hinh Java cu ve Java 17
+          s = re.sub(
+              r'(?m)^(\s*sourceCompatibility\s*=\s*)JavaVersion\.VERSION_1_8\b',
+              r'\1JavaVersion.VERSION_17',
+              s
+          )
+          s = re.sub(
+              r'(?m)^(\s*targetCompatibility\s*=\s*)JavaVersion\.VERSION_1_8\b',
+              r'\1JavaVersion.VERSION_17',
+              s
+          )
+          s = re.sub(
+              r'(?m)^(\s*jvmTarget\s*=\s*)["\']1\.8["\']',
+              r'\1"17"',
+              s
+          )
+
+          # Sua ca truong hop Java 8 duoc viet bang chuoi
+          s = re.sub(
+              r'(?m)^(\s*sourceCompatibility\s*=\s*)["\']1\.8["\']',
+              r'\1JavaVersion.VERSION_17',
+              s
+          )
+          s = re.sub(
+              r'(?m)^(\s*targetCompatibility\s*=\s*)["\']1\.8["\']',
+              r'\1JavaVersion.VERSION_17',
+              s
+          )
+
+          # Dam bao co cau hinh compileOptions
+          if not re.search(r'\bcompileOptions\s*\{', s):
+              s = re.sub(
+                  r'\bandroid\s*\{',
+                  lambda m: m.group(0) + '''
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          ''',
+                  s,
+                  count=1
+              )
+
+          # Dam bao co cau hinh Kotlin JVM 17
+          if not re.search(r'\bkotlinOptions\s*\{', s):
+              s = re.sub(
+                  r'\bandroid\s*\{',
+                  lambda m: m.group(0) + '''
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          ''',
+                  s,
+                  count=1
+              )
+
+          # Kiem tra va ghi lai
+          if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
+              raise SystemExit("Chua dat duoc Java 17")
+          if 'jvmTarget = "17"' not in s:
+              raise SystemExit("Chua dat duoc Kotlin JVM 17")
+
+          p.write_text(s, encoding="utf-8")
+          print("Da cap nhat Java va Kotlin")
+          PY
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -e
+          cd source/KanaMasterAndroid
           /tmp/gradle-8.9/bin/gradle \
-            --no-daemon assembleDebug
+            --no-daemon \
+            --stacktrace \
+            assembleDebug
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: KanaMaster-APK
           path: source/KanaMasterAndroid/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          

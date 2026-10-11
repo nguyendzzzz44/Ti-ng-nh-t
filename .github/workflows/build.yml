@@ -1,9 +1,11 @@
+
 name: Build Kana Master APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -11,6 +13,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,27 +24,24 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # ✅ Dùng action chuẩn, không cần tự cài thủ công nữa
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
-          api-level: 35
-          build-tools: "34.0.0"
+          packages: 'platform-tools platforms;android-35 build-tools;34.0.0'
 
-      - name: Extract source & Build APK
+      - name: Extract source and Build APK
         run: |
           unzip -q KanaMasterAndroid_phone_build.zip
           cd KanaMasterAndroid
-          
-          # Tạo file cấu hình tạm để đồng bộ JVM
-          cat > fix-jvm.gradle << 'EOF'
-          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
-              kotlinOptions { jvmTarget = "17" }
+          cat > fix-jvm.gradle <<'EOF'
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
           }
           EOF
-          echo "apply from: 'fix-jvm.gradle'" >> app/build.gradle.kts
-          
-          chmod +x gradlew 2>/dev/null || gradle wrapper
+          echo "apply from: 'fix-jvm.gradle'" >> app/build.gradle
+          chmod +x gradlew 2>/dev/null || true
           ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
